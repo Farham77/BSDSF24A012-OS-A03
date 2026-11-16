@@ -25,5 +25,8 @@ void add_history_entry(const char* cmdline);
 char* recall_history(const char* cmdline);
 int handle_builtin(char** arglist);
 int execute(char** arglist);
+int execute_command(char** arglist, int background, const char* command_line);
+void reap_background_jobs(void);
+void print_background_jobs(void);
 
 #endif // SHELL_H

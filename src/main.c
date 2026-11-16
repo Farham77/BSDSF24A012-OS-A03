@@ -2,11 +2,12 @@
 
 int main() {
     char* cmdline;
-    char** arglist;
 
     rl_attempted_completion_function = complete_input;
 
     while ((cmdline = read_cmd(PROMPT, stdin)) != NULL) {
+        reap_background_jobs();
+
         if (cmdline[0] != '\0') {
             add_history(cmdline);
         }
@@ -22,16 +23,33 @@ int main() {
             add_history_entry(cmdline);
         }
 
-        if ((arglist = tokenize(cmdline)) != NULL) {
-            if (!handle_builtin(arglist)) {
-                execute(arglist);
+        char* command = strtok(cmdline, ";");
+        while (command != NULL) {
+            char** arglist = tokenize(command);
+            if (arglist != NULL) {
+                int last = 0;
+                while (arglist[last] != NULL) {
+                    last++;
+                }
+
+                int background = last > 0 &&
+                                 strcmp(arglist[last - 1], "&") == 0;
+                if (background) {
+                    free(arglist[last - 1]);
+                    arglist[last - 1] = NULL;
+                }
+
+                if (arglist[0] != NULL && !handle_builtin(arglist)) {
+                    execute_command(arglist, background, command);
+                }
+
+                for (int i = 0; arglist[i] != NULL; i++) {
+                    free(arglist[i]);
+                }
+                free(arglist);
             }
 
-            // Free the memory allocated by tokenize()
-            for (int i = 0; arglist[i] != NULL; i++) {
-                free(arglist[i]);
-            }
-            free(arglist);
+            command = strtok(NULL, ";");
         }
         free(cmdline);
     }

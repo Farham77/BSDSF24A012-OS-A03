@@ -1,6 +1,16 @@
 #include "shell.h"
 #include <fcntl.h>
 
+#define MAX_JOBS 64
+
+struct background_job {
+    pid_t pid;
+    char* command;
+};
+
+static struct background_job background_jobs[MAX_JOBS];
+static int background_job_count;
+
 static int is_operator(const char* token) {
     return strcmp(token, "<") == 0 || strcmp(token, ">") == 0 ||
            strcmp(token, "|") == 0;
@@ -74,7 +84,7 @@ static int execute_stage(char* arglist[], int start, int end,
     return -1;
 }
 
-int execute(char* arglist[]) {
+int execute_command(char* arglist[], int background, const char* command_line) {
     int process_count = 0;
     int previous_input = STDIN_FILENO;
     int start = 0;
@@ -108,6 +118,10 @@ int execute(char* arglist[]) {
                 _exit(result == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
             }
 
+            if (process_count >= MAXARGS) {
+                fprintf(stderr, "shell: too many pipeline processes\n");
+                return -1;
+            }
             children[process_count++] = child_pid;
             if (previous_input != STDIN_FILENO) close(previous_input);
             if (output_fd != STDOUT_FILENO) close(output_fd);
@@ -120,6 +134,23 @@ int execute(char* arglist[]) {
         }
     }
 
+    if (background) {
+        for (int i = 0; i < process_count; i++) {
+            if (background_job_count >= MAX_JOBS) {
+                fprintf(stderr, "jobs: job table is full\n");
+                break;
+            }
+            background_jobs[background_job_count].pid = children[i];
+            background_jobs[background_job_count].command = strdup(command_line);
+            if (background_jobs[background_job_count].command == NULL) {
+                perror("strdup");
+                return -1;
+            }
+            background_job_count++;
+        }
+        return 0;
+    }
+
     for (int i = 0; i < process_count; i++) {
         if (waitpid(children[i], NULL, 0) == -1) {
             perror("waitpid");
@@ -128,4 +159,36 @@ int execute(char* arglist[]) {
     }
 
     return 0;
+}
+
+int execute(char* arglist[]) {
+    return execute_command(arglist, 0, arglist[0]);
+}
+
+void reap_background_jobs(void) {
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        for (int i = 0; i < background_job_count; i++) {
+            if (background_jobs[i].pid == pid) {
+                free(background_jobs[i].command);
+                background_jobs[i] = background_jobs[background_job_count - 1];
+                background_job_count--;
+                break;
+            }
+        }
+    }
+
+    if (pid == -1 && errno != ECHILD) {
+        perror("waitpid");
+    }
+}
+
+void print_background_jobs(void) {
+    reap_background_jobs();
+    for (int i = 0; i < background_job_count; i++) {
+        printf("[%d] %s\n", background_jobs[i].pid,
+               background_jobs[i].command);
+    }
 }
