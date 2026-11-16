@@ -5,6 +5,17 @@ int main() {
     char** arglist;
 
     while ((cmdline = read_cmd(PROMPT, stdin)) != NULL) {
+        if (cmdline[0] == '!') {
+            char* recalled_cmdline = recall_history(cmdline);
+            free(cmdline);
+            cmdline = recalled_cmdline;
+            if (cmdline == NULL) {
+                continue;
+            }
+        } else if (cmdline[0] != '\0') {
+            add_history_entry(cmdline);
+        }
+
         if ((arglist = tokenize(cmdline)) != NULL) {
             if (!handle_builtin(arglist)) {
                 execute(arglist);
