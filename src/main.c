@@ -4,7 +4,13 @@ int main() {
     char* cmdline;
     char** arglist;
 
+    rl_attempted_completion_function = complete_input;
+
     while ((cmdline = read_cmd(PROMPT, stdin)) != NULL) {
+        if (cmdline[0] != '\0') {
+            add_history(cmdline);
+        }
+
         if (cmdline[0] == '!') {
             char* recalled_cmdline = recall_history(cmdline);
             free(cmdline);
