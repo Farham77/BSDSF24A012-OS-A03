@@ -300,6 +300,10 @@ char* recall_history(const char* cmdline) {
 
 int handle_builtin(char** arglist) {
     if (strchr(arglist[0], '=') != NULL) {
+        if (arglist[1] != NULL) {
+            fprintf(stderr, "variable: assignment cannot contain spaces\n");
+            return 1;
+        }
         assign_variable(arglist[0]);
         return 1;
     }
