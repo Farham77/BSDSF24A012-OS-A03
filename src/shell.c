@@ -119,13 +119,13 @@ char** tokenize(char* cmdline) {
         if (*cp == '\0') break; // Line was only whitespace
 
         start = cp;
-        if (*cp == '<' || *cp == '>' || *cp == '|') {
+        if (*cp == '<' || *cp == '>' || *cp == '|' || *cp == '&') {
             len = 1;
             cp++;
         } else {
             len = 0;
             while (*cp != '\0' && *cp != ' ' && *cp != '\t' &&
-                   *cp != '<' && *cp != '>' && *cp != '|') {
+                   *cp != '<' && *cp != '>' && *cp != '|' && *cp != '&') {
                 cp++;
                 len++;
             }
@@ -222,7 +222,7 @@ int handle_builtin(char** arglist) {
     }
 
     if (strcmp(arglist[0], "jobs") == 0) {
-        printf("Job control not yet implemented.\n");
+        print_background_jobs();
         return 1;
     }
 
