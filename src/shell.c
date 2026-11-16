@@ -119,9 +119,16 @@ char** tokenize(char* cmdline) {
         if (*cp == '\0') break; // Line was only whitespace
 
         start = cp;
-        len = 1;
-        while (*++cp != '\0' && !(*cp == ' ' || *cp == '\t')) {
-            len++;
+        if (*cp == '<' || *cp == '>' || *cp == '|') {
+            len = 1;
+            cp++;
+        } else {
+            len = 0;
+            while (*cp != '\0' && *cp != ' ' && *cp != '\t' &&
+                   *cp != '<' && *cp != '>' && *cp != '|') {
+                cp++;
+                len++;
+            }
         }
         strncpy(arglist[argnum], start, len);
         arglist[argnum][len] = '\0';
