@@ -151,14 +151,23 @@ int execute_command(char* arglist[], int background, const char* command_line) {
         return 0;
     }
 
+    int last_status = EXIT_FAILURE;
     for (int i = 0; i < process_count; i++) {
-        if (waitpid(children[i], NULL, 0) == -1) {
+        int status;
+        if (waitpid(children[i], &status, 0) == -1) {
             perror("waitpid");
             return -1;
         }
+        if (i == process_count - 1) {
+            if (WIFEXITED(status)) {
+                last_status = WEXITSTATUS(status);
+            } else if (WIFSIGNALED(status)) {
+                last_status = 128 + WTERMSIG(status);
+            }
+        }
     }
 
-    return 0;
+    return last_status;
 }
 
 int execute(char* arglist[]) {
