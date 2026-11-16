@@ -58,7 +58,11 @@ static int execute_line(char* line) {
             }
 
             if (arglist[0] != NULL && !handle_builtin(arglist)) {
-                last_status = execute_command(arglist, background, command);
+                if (expand_variables(arglist) == 0) {
+                    last_status = execute_command(arglist, background, command);
+                } else {
+                    last_status = EXIT_FAILURE;
+                }
             }
             free_arguments(arglist);
         }
@@ -85,7 +89,10 @@ static int execute_if_block(char* condition, char* then_lines[],
         return EXIT_FAILURE;
     }
 
-    int condition_status = execute_command(condition_args, 0, condition);
+    int condition_status = EXIT_FAILURE;
+    if (expand_variables(condition_args) == 0) {
+        condition_status = execute_command(condition_args, 0, condition);
+    }
     free_arguments(condition_args);
 
     char** selected_lines = condition_status == EXIT_SUCCESS
