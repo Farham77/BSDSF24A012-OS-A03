@@ -1,4 +1,7 @@
 #include "shell.h"
+#include <dirent.h>
+#include <limits.h>
+#include <sys/stat.h>
 
 static char* command_history[HISTORY_SIZE];
 static int history_count;
@@ -18,22 +21,79 @@ static char* copy_string(const char* value) {
 }
 
 char* read_cmd(char* prompt, FILE* fp) {
-    printf("%s", prompt);
-    char* cmdline = (char*) malloc(sizeof(char) * MAX_LEN);
-    int c, pos = 0;
+    (void)fp;
+    return readline(prompt);
+}
 
-    while ((c = getc(fp)) != EOF) {
-        if (c == '\n') break;
-        cmdline[pos++] = c;
+static int add_completion(char*** matches, size_t* count,
+                          const char* text, const char* value) {
+    for (size_t i = 0; i < *count; i++) {
+        if (strcmp((*matches)[i], value) == 0) {
+            return 1;
+        }
     }
 
-    if (c == EOF && pos == 0) {
-        free(cmdline);
-        return NULL; // Handle Ctrl+D
+    char** resized = realloc(*matches, sizeof(char*) * (*count + 2));
+    if (resized == NULL) {
+        perror("realloc");
+        return 0;
     }
-    
-    cmdline[pos] = '\0';
-    return cmdline;
+
+    resized[*count] = copy_string(value);
+    resized[*count + 1] = NULL;
+    *matches = resized;
+    (*count)++;
+    (void)text;
+    return 1;
+}
+
+char** complete_input(const char* text, int start, int end) {
+    char** matches = NULL;
+    size_t count = 0;
+    (void)end;
+
+    if (start == 0) {
+        const char* path = getenv("PATH");
+        if (path != NULL) {
+            char* path_copy = copy_string(path);
+            char* directory = strtok(path_copy, ":");
+
+            while (directory != NULL) {
+                DIR* dir = opendir(directory[0] == '\0' ? "." : directory);
+                if (dir != NULL) {
+                    struct dirent* entry;
+                    while ((entry = readdir(dir)) != NULL) {
+                        char candidate[PATH_MAX];
+                        int written = snprintf(candidate, sizeof(candidate),
+                                                "%s/%s", directory,
+                                                entry->d_name);
+                        if (written >= 0 && (size_t)written < sizeof(candidate) &&
+                            strncmp(entry->d_name, text, strlen(text)) == 0 &&
+                            access(candidate, X_OK) == 0) {
+                            add_completion(&matches, &count, text,
+                                           entry->d_name);
+                        }
+                    }
+                    closedir(dir);
+                }
+                directory = strtok(NULL, ":");
+            }
+            free(path_copy);
+        }
+    }
+
+    DIR* current_directory = opendir(".");
+    if (current_directory != NULL) {
+        struct dirent* entry;
+        while ((entry = readdir(current_directory)) != NULL) {
+            if (strncmp(entry->d_name, text, strlen(text)) == 0) {
+                add_completion(&matches, &count, text, entry->d_name);
+            }
+        }
+        closedir(current_directory);
+    }
+
+    return matches;
 }
 
 char** tokenize(char* cmdline) {

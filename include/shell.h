@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <readline/history.h>
+#include <readline/readline.h>
 
 #define MAX_LEN 512
 #define MAXARGS 10
@@ -17,6 +19,7 @@
 
 // Function prototypes
 char* read_cmd(char* prompt, FILE* fp);
+char** complete_input(const char* text, int start, int end);
 char** tokenize(char* cmdline);
 void add_history_entry(const char* cmdline);
 char* recall_history(const char* cmdline);
